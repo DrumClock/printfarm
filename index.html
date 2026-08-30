@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#16181D">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Print Farm">
+<link rel="manifest" href="./manifest.json">
+<link rel="icon" type="image/png" href="./icon-192.png">
+<link rel="apple-touch-icon" href="./icon-180.png">
+<title>Print Farm</title>
+<style>
+  :root{
+    --bg:#16181D;
+    --panel:#1E2128;
+    --panel-2:#22262F;
+    --line:#2C313B;
+    --line-soft:#242832;
+    --txt:#E6E9EF;
+    --muted:#8A93A3;
+    --muted-2:#5C6474;
+    --signal:#3DD6C4;       /* LCD teal — reachable */
+    --hot:#FF8A3D;          /* hot-end amber — checking / live */
+    --down:#E5484D;         /* not reachable */
+    --mono:ui-monospace,"SF Mono","Roboto Mono",Menlo,Consolas,monospace;
+    --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--bg);
+    color:var(--txt);
+    font-family:var(--sans);
+    min-height:100dvh;
+    padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:520px;margin:0 auto;padding:0 16px 120px}
+
+  /* ---- header ---- */
+  header{
+    position:sticky;top:0;z-index:20;
+    background:linear-gradient(var(--bg) 78%,rgba(22,24,29,0));
+    padding:22px 0 14px;
+  }
+  .brand{display:flex;align-items:flex-end;justify-content:space-between;gap:12px}
+  .title{font-size:24px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;line-height:1}
+  .title span{color:var(--signal)}
+  .sub{margin-top:7px;font-family:var(--mono);font-size:11.5px;color:var(--muted);letter-spacing:.02em}
+  .add{
+    flex:0 0 auto;border:1px solid var(--line);background:var(--panel);
+    color:var(--txt);font-family:var(--mono);font-size:13px;font-weight:600;
+    padding:9px 13px;border-radius:10px;cursor:pointer;letter-spacing:.02em;
+    display:flex;align-items:center;gap:7px;transition:border-color .15s,background .15s;
+  }
+  .add:hover{border-color:var(--signal);background:var(--panel-2)}
+  .add b{color:var(--signal);font-size:15px;line-height:0}
+
+  /* gantry rail under header */
+  .rail{height:2px;margin-top:14px;background:
+    repeating-linear-gradient(90deg,var(--line) 0 8px,transparent 8px 16px);
+    opacity:.7}
+
+  /* ---- machine cards ---- */
+  .grid{display:flex;flex-direction:column;gap:12px;margin-top:16px}
+  .bay{
+    position:relative;display:block;text-decoration:none;color:inherit;
+    background:var(--panel);border:1px solid var(--line);border-radius:14px;
+    padding:15px 15px 14px;overflow:hidden;
+    transition:border-color .15s,transform .08s,background .15s;
+  }
+  .bay::before{content:"";position:absolute;left:0;top:0;height:100%;width:3px;
+    background:var(--led,var(--muted-2));opacity:.8}
+  .bay:hover{border-color:#39404d;background:var(--panel-2)}
+  .bay:active{transform:scale(.992)}
+  .bay-top{display:flex;align-items:center;gap:10px}
+  .led{flex:0 0 auto;width:9px;height:9px;border-radius:50%;
+    background:var(--led,var(--muted-2));box-shadow:0 0 0 0 transparent;position:relative}
+  .led.pulse{animation:pulse 1.1s ease-out infinite}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--hot) 65%,transparent)}
+    100%{box-shadow:0 0 0 8px transparent}}
+  .name{font-size:16.5px;font-weight:700;letter-spacing:.01em;flex:1;min-width:0;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .kebab{flex:0 0 auto;width:30px;height:30px;margin:-4px -6px -4px 0;border:0;background:transparent;
+    color:var(--muted);cursor:pointer;border-radius:8px;font-size:18px;line-height:1;
+    display:flex;align-items:center;justify-content:center}
+  .kebab:hover{background:var(--line-soft);color:var(--txt)}
+  .addr{margin-top:10px;font-family:var(--mono);font-size:13.5px;color:var(--signal);
+    letter-spacing:.01em;display:flex;align-items:center;gap:8px}
+  .addr .arrow{color:var(--muted-2);margin-left:auto;font-size:15px}
+  .meta{margin-top:9px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .tag{font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--muted);border:1px solid var(--line);padding:2px 7px;border-radius:6px}
+  .state{font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-2)}
+  .state.on{color:var(--signal)}
+  .state.off{color:var(--down)}
+  .state.chk{color:var(--hot)}
+
+  /* ---- empty state ---- */
+  .empty{border:1px dashed var(--line);border-radius:14px;padding:34px 22px;text-align:center;margin-top:16px}
+  .empty h2{margin:0 0 8px;font-size:16px;font-weight:700}
+  .empty p{margin:0 0 18px;color:var(--muted);font-size:13.5px;line-height:1.55}
+  .empty p code{font-family:var(--mono);color:var(--signal);font-size:12.5px}
+
+  /* ---- footer actions ---- */
+  .foot{position:fixed;left:0;right:0;bottom:0;z-index:20;
+    padding:12px 16px calc(12px + env(safe-area-inset-bottom));
+    background:linear-gradient(rgba(22,24,29,0),var(--bg) 42%);
+    display:flex;gap:10px;max-width:520px;margin:0 auto}
+  .fbtn{flex:1;border:1px solid var(--line);background:var(--panel);color:var(--txt);
+    font-family:var(--mono);font-size:13px;font-weight:600;padding:12px;border-radius:11px;
+    cursor:pointer;letter-spacing:.03em;transition:border-color .15s,background .15s}
+  .fbtn:hover{border-color:#39404d;background:var(--panel-2)}
+  .fbtn.primary{border-color:color-mix(in srgb,var(--signal) 45%,var(--line))}
+  .fbtn.primary:hover{border-color:var(--signal)}
+
+  /* ---- modal ---- */
+  .scrim{position:fixed;inset:0;z-index:40;background:rgba(8,9,12,.72);
+    display:flex;align-items:flex-end;justify-content:center;opacity:0;pointer-events:none;
+    transition:opacity .18s;backdrop-filter:blur(2px)}
+  .scrim.open{opacity:1;pointer-events:auto}
+  .sheet{width:100%;max-width:520px;background:var(--panel);border:1px solid var(--line);
+    border-bottom:0;border-radius:18px 18px 0 0;padding:20px 18px calc(22px + env(safe-area-inset-bottom));
+    transform:translateY(14px);transition:transform .18s}
+  .scrim.open .sheet{transform:none}
+  .sheet h3{margin:0 0 3px;font-size:17px;font-weight:800;letter-spacing:.04em;text-transform:uppercase}
+  .sheet .hint{margin:0 0 18px;font-family:var(--mono);font-size:11.5px;color:var(--muted);line-height:1.5}
+  label{display:block;font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;
+    color:var(--muted);margin:14px 0 6px}
+  input,textarea{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:10px;
+    color:var(--txt);font-family:var(--mono);font-size:14.5px;padding:11px 12px;outline:none;
+    transition:border-color .15s}
+  input:focus,textarea:focus{border-color:var(--signal)}
+  textarea{min-height:96px;resize:vertical;line-height:1.5}
+  .field-note{font-family:var(--mono);font-size:10.5px;color:var(--muted-2);margin-top:6px;line-height:1.5}
+  .row{display:flex;gap:10px;margin-top:22px}
+  .row .fbtn{flex:1}
+  .danger{border-color:color-mix(in srgb,var(--down) 40%,var(--line));color:var(--down)}
+  .danger:hover{border-color:var(--down);background:color-mix(in srgb,var(--down) 12%,var(--panel))}
+  .help-block{font-size:13px;color:var(--muted);line-height:1.6}
+  .help-block b{color:var(--txt);font-weight:600}
+  .help-block code{font-family:var(--mono);color:var(--signal);font-size:12px}
+  .help-block ol{margin:8px 0 0;padding-left:20px}
+  .help-block li{margin-bottom:6px}
+  .toast{position:fixed;left:50%;bottom:96px;transform:translateX(-50%) translateY(10px);z-index:60;
+    background:var(--panel-2);border:1px solid var(--line);color:var(--txt);
+    font-family:var(--mono);font-size:12.5px;padding:9px 14px;border-radius:10px;
+    opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;white-space:nowrap}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <div>
+        <div class="title">Print<span>·</span>Farm</div>
+        <div class="sub" id="subline">0 strojů · klikni pro otevření</div>
+      </div>
+      <button class="add" id="addBtn"><b>+</b> Přidat</button>
+    </div>
+    <div class="rail"></div>
+  </header>
+
+  <div id="list" class="grid"></div>
+</div>
+
+<div class="foot">
+  <button class="fbtn primary" id="checkBtn">Zkontrolovat</button>
+  <button class="fbtn" id="cfgBtn">Nastavení</button>
+</div>
+
+<!-- add / edit sheet -->
+<div class="scrim" id="editScrim">
+  <div class="sheet">
+    <h3 id="editTitle">Nová tiskárna</h3>
+    <p class="hint">Adresu zadej jako hostname (nemění se), ne jako IP.</p>
+    <label>Název</label>
+    <input id="fName" placeholder="Voron 2.4" autocomplete="off" autocapitalize="words">
+    <label>Adresa</label>
+    <input id="fAddr" placeholder="voron24.local" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" inputmode="url">
+    <div class="field-note">Stačí <code>voron24.local</code>. Případně IP <code>192.168.43.50</code> nebo s portem <code>:7125</code>.</div>
+    <label>Štítek (volitelné)</label>
+    <input id="fTag" placeholder="Mainsail" autocomplete="off">
+    <div class="row">
+      <button class="fbtn danger" id="delBtn" style="display:none">Smazat</button>
+      <button class="fbtn primary" id="saveBtn">Uložit</button>
+    </div>
+  </div>
+</div>
+
+<!-- config sheet -->
+<div class="scrim" id="cfgScrim">
+  <div class="sheet">
+    <h3>Nastavení</h3>
+    <p class="hint">Záloha seznamu a nápověda.</p>
+    <div class="help-block">
+      <b>Jak z toho udělat ikonu na ploše</b>
+      <ol>
+        <li>Otevři tento soubor v prohlížeči v telefonu.</li>
+        <li>Menu prohlížeče → <b>Přidat na plochu</b>.</li>
+        <li>Spouštíš pak jedním klepnutím na ikonu.</li>
+      </ol>
+    </div>
+    <div class="help-block" style="margin-top:16px">
+      <b>Proč hostname místo IP</b><br>
+      Hotspot přidělí pokaždé jinou IP, ale <code>hostname.local</code> zůstává stejné. Hostname nastavíš při flashování obrazu, nebo přes <code>sudo raspi-config</code> na tiskárně.
+    </div>
+    <label>Konfigurace (JSON)</label>
+    <textarea id="cfgJson" spellcheck="false" autocapitalize="off" autocorrect="off"></textarea>
+    <div class="field-note">Zkopíruj si pro zálohu, nebo vlož a načti na jiném zařízení.</div>
+    <div class="row">
+      <button class="fbtn" id="importBtn">Načíst JSON</button>
+      <button class="fbtn primary" id="cfgCloseBtn">Hotovo</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  "use strict";
+  var KEY="printfarm.v1";
+  var printers=[];
+  var editIndex=-1;
+
+  /* storage with graceful fallback (works when file is opened from disk / home screen) */
+  function load(){
+    try{ var raw=localStorage.getItem(KEY); if(raw) printers=JSON.parse(raw)||[]; }
+    catch(e){ printers=[]; }
+  }
+  function save(){
+    try{ localStorage.setItem(KEY,JSON.stringify(printers)); }
+    catch(e){ toast("Uložení se nepovedlo (jen náhled?)"); }
+  }
+
+  function normUrl(addr){
+    addr=(addr||"").trim();
+    if(!addr) return "";
+    if(!/^https?:\/\//i.test(addr)) addr="http://"+addr;
+    return addr;
+  }
+
+  var $=function(id){return document.getElementById(id)};
+  var listEl=$("list"), subEl=$("subline"), toastEl=$("toast");
+
+  function toast(msg){
+    toastEl.textContent=msg; toastEl.classList.add("show");
+    clearTimeout(toast._t); toast._t=setTimeout(function(){toastEl.classList.remove("show")},1900);
+  }
+
+  function render(){
+    listEl.innerHTML="";
+    subEl.textContent=printers.length+" "+plural(printers.length)+" · klikni pro otevření";
+    if(printers.length===0){ renderEmpty(); return; }
+    printers.forEach(function(p,i){
+      var url=normUrl(p.addr);
+      var a=document.createElement("a");
+      a.className="bay"; a.href=url; a.target="_blank"; a.rel="noopener";
+      var ledColor=stateColor(p._state);
+      a.style.setProperty("--led",ledColor);
+      a.innerHTML=
+        '<div class="bay-top">'+
+          '<span class="led'+(p._state==="chk"?" pulse":"")+'"></span>'+
+          '<span class="name"></span>'+
+          '<button class="kebab" aria-label="Upravit">⋮</button>'+
+        '</div>'+
+        '<div class="addr"><span class="addr-txt"></span><span class="arrow">↗</span></div>'+
+        '<div class="meta">'+
+          (p.tag?'<span class="tag"></span>':'')+
+          '<span class="state '+stateClass(p._state)+'">'+stateLabel(p._state)+'</span>'+
+        '</div>';
+      a.querySelector(".name").textContent=p.name||"Bez názvu";
+      a.querySelector(".addr-txt").textContent=p.addr||"";
+      if(p.tag) a.querySelector(".tag").textContent=p.tag;
+      a.querySelector(".kebab").addEventListener("click",function(ev){
+        ev.preventDefault(); ev.stopPropagation(); openEdit(i);
+      });
+      listEl.appendChild(a);
+    });
+  }
+
+  function renderEmpty(){
+    var d=document.createElement("div");
+    d.className="empty";
+    d.innerHTML='<h2>Zatím žádná tiskárna</h2>'+
+      '<p>Přidej první stroj. Nejlíp přes jeho hostname, třeba <code>voron24.local</code> nebo <code>fluiddpi.local</code> — to se na rozdíl od IP nemění.</p>'+
+      '<button class="fbtn primary" style="max-width:220px;margin:0 auto" id="emptyAdd">Přidat tiskárnu</button>';
+    listEl.appendChild(d);
+    $("emptyAdd").addEventListener("click",function(){openEdit(-1)});
+  }
+
+  function plural(n){ if(n===1) return "stroj"; if(n>=2&&n<=4) return "stroje"; return "strojů"; }
+  function stateColor(s){ return s==="on"?"var(--signal)":s==="off"?"var(--down)":s==="chk"?"var(--hot)":"var(--muted-2)"; }
+  function stateClass(s){ return s==="on"?"on":s==="off"?"off":s==="chk"?"chk":""; }
+  function stateLabel(s){ return s==="on"?"dostupná":s==="off"?"nedostupná":s==="chk"?"kontroluji…":"neznámý stav"; }
+
+  /* ---- edit sheet ---- */
+  var editScrim=$("editScrim");
+  function openEdit(i){
+    editIndex=i;
+    var isNew=(i<0);
+    $("editTitle").textContent=isNew?"Nová tiskárna":"Upravit tiskárnu";
+    $("delBtn").style.display=isNew?"none":"block";
+    var p=isNew?{}:printers[i];
+    $("fName").value=p.name||""; $("fAddr").value=p.addr||""; $("fTag").value=p.tag||"";
+    editScrim.classList.add("open");
+    setTimeout(function(){ if(isNew) $("fName").focus(); },180);
+  }
+  function closeEdit(){ editScrim.classList.remove("open"); }
+
+  $("saveBtn").addEventListener("click",function(){
+    var name=$("fName").value.trim(), addr=$("fAddr").value.trim(), tag=$("fTag").value.trim();
+    if(!addr){ toast("Vyplň adresu"); return; }
+    if(!name) name=addr.replace(/^https?:\/\//i,"").split(/[.:\/]/)[0];
+    var obj={name:name,addr:addr,tag:tag,_state:null};
+    if(editIndex<0) printers.push(obj); else { obj._state=printers[editIndex]._state; printers[editIndex]=obj; }
+    save(); render(); closeEdit();
+  });
+  $("delBtn").addEventListener("click",function(){
+    if(editIndex>=0){ printers.splice(editIndex,1); save(); render(); closeEdit(); toast("Smazáno"); }
+  });
+  $("addBtn").addEventListener("click",function(){openEdit(-1)});
+
+  /* ---- reachability check (best effort, honest) ---- */
+  function checkOne(p){
+    return new Promise(function(resolve){
+      var url=normUrl(p.addr); if(!url){ p._state=null; return resolve(); }
+      p._state="chk"; render();
+      var done=false, ctrl=("AbortController" in window)?new AbortController():null;
+      var timer=setTimeout(function(){ if(done) return; done=true; if(ctrl) ctrl.abort(); p._state="off"; resolve(); },4000);
+      var opts={mode:"no-cors",cache:"no-store"}; if(ctrl) opts.signal=ctrl.signal;
+      fetch(url,opts).then(function(){ if(done) return; done=true; clearTimeout(timer); p._state="on"; resolve(); })
+        .catch(function(){ if(done) return; done=true; clearTimeout(timer); p._state="off"; resolve(); });
+    });
+  }
+  $("checkBtn").addEventListener("click",function(){
+    if(printers.length===0){ toast("Nejdřív přidej tiskárnu"); return; }
+    var btn=this; btn.disabled=true; btn.textContent="Kontroluji…";
+    var seq=Promise.resolve();
+    printers.forEach(function(p){ seq=seq.then(function(){ return checkOne(p).then(render); }); });
+    seq.then(function(){ btn.disabled=false; btn.textContent="Zkontrolovat"; render(); });
+  });
+
+  /* ---- config sheet ---- */
+  var cfgScrim=$("cfgScrim");
+  $("cfgBtn").addEventListener("click",function(){
+    $("cfgJson").value=JSON.stringify(printers.map(function(p){return{name:p.name,addr:p.addr,tag:p.tag}}),null,2);
+    cfgScrim.classList.add("open");
+  });
+  $("cfgCloseBtn").addEventListener("click",function(){cfgScrim.classList.remove("open")});
+  $("importBtn").addEventListener("click",function(){
+    try{
+      var arr=JSON.parse($("cfgJson").value);
+      if(!Array.isArray(arr)) throw 0;
+      printers=arr.map(function(p){return{name:p.name||"",addr:p.addr||"",tag:p.tag||"",_state:null}});
+      save(); render(); cfgScrim.classList.remove("open"); toast("Načteno "+printers.length+"×");
+    }catch(e){ toast("Neplatný JSON"); }
+  });
+
+  /* close sheets on scrim tap */
+  [editScrim,cfgScrim].forEach(function(s){
+    s.addEventListener("click",function(e){ if(e.target===s) s.classList.remove("open"); });
+  });
+
+  load(); render();
+})();
+
+/* register service worker for offline use (ignored when opened as file://) */
+if("serviceWorker" in navigator && location.protocol.indexOf("http")===0){
+  window.addEventListener("load",function(){
+    navigator.serviceWorker.register("./sw.js").catch(function(){});
+  });
+}
+</script>
+</body>
+</html>
