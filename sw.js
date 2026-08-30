@@ -1,5 +1,5 @@
-/* Print Farm service worker — offline app shell */
-var CACHE = "printfarm-v2";
+/* Print Farm service worker — network-first (auto-updates online, works offline) */
+var CACHE = "printfarm-v4";
 var ASSETS = [
   "./",
   "./index.html",
@@ -14,9 +14,7 @@ self.addEventListener("install", function(e){
   self.skipWaiting();
   e.waitUntil(
     caches.open(CACHE).then(function(c){
-      return Promise.all(ASSETS.map(function(u){
-        return c.add(u).catch(function(){}); // don't fail install if one asset misses
-      }));
+      return Promise.all(ASSETS.map(function(u){ return c.add(u).catch(function(){}); }));
     })
   );
 });
@@ -24,27 +22,25 @@ self.addEventListener("install", function(e){
 self.addEventListener("activate", function(e){
   e.waitUntil(
     caches.keys().then(function(keys){
-      return Promise.all(keys.map(function(k){
-        if(k !== CACHE) return caches.delete(k);
-      }));
+      return Promise.all(keys.map(function(k){ if(k !== CACHE) return caches.delete(k); }));
     }).then(function(){ return self.clients.claim(); })
   );
 });
 
+/* Network-first: try the network (fresh), fall back to cache when offline.
+   Every successful fetch refreshes the cache, so offline always has the latest seen version. */
 self.addEventListener("fetch", function(e){
   if(e.request.method !== "GET") return;
   var url = new URL(e.request.url);
-  // Only serve our own origin from cache; never intercept printer requests.
-  if(url.origin !== self.location.origin) return;
+  if(url.origin !== self.location.origin) return; // never intercept printer (cross-origin) requests
   e.respondWith(
-    caches.match(e.request).then(function(hit){
-      if(hit) return hit;
-      return fetch(e.request).then(function(res){
-        var copy = res.clone();
-        caches.open(CACHE).then(function(c){ c.put(e.request, copy).catch(function(){}); });
-        return res;
-      }).catch(function(){
-        // offline fallback: for navigations, return the app shell
+    fetch(e.request).then(function(res){
+      var copy = res.clone();
+      caches.open(CACHE).then(function(c){ c.put(e.request, copy).catch(function(){}); });
+      return res;
+    }).catch(function(){
+      return caches.match(e.request).then(function(hit){
+        if(hit) return hit;
         if(e.request.mode === "navigate") return caches.match("./index.html");
       });
     })
