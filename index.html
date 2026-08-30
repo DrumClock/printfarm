@@ -229,9 +229,18 @@
       <b>Proč hostname místo IP</b><br>
       Hotspot přidělí pokaždé jinou IP, ale <code>hostname.local</code> zůstává stejné. Hostname nastavíš při flashování obrazu, nebo přes <code>sudo raspi-config</code> na tiskárně.
     </div>
+    <div class="help-block" style="margin-top:16px">
+      <b>Záloha a přenos na jiný telefon</b><br>
+      Stáhne jeden soubor se všemi tiskárnami <b>i fotkami</b>. Přenes ho na druhý telefon (mail, Disk, kabel…), tam otevři appku → Nastavení → <b>Obnovit ze souboru</b>.
+    </div>
+    <div class="row" style="margin-top:12px">
+      <button class="fbtn primary" id="backupBtn">Stáhnout zálohu</button>
+      <button class="fbtn" id="restoreBtn">Obnovit ze souboru</button>
+    </div>
+    <input type="file" id="restoreFile" accept="application/json,.json" style="display:none">
     <label>Konfigurace (JSON)</label>
     <textarea id="cfgJson" spellcheck="false" autocapitalize="off" autocorrect="off"></textarea>
-    <div class="field-note">Zkopíruj si pro zálohu, nebo vlož a načti na jiném zařízení.</div>
+    <div class="field-note">Ruční varianta: zkopíruj pro zálohu, nebo vlož a načti. Pro přenos i s fotkami je lepší tlačítko výše.</div>
     <div class="row">
       <button class="fbtn" id="importBtn">Načíst JSON</button>
       <button class="fbtn primary" id="cfgCloseBtn">Hotovo</button>
@@ -409,13 +418,49 @@
     cfgScrim.classList.add("open");
   });
   $("cfgCloseBtn").addEventListener("click",function(){cfgScrim.classList.remove("open")});
+
+  /* normalize an imported payload (accepts a plain array or a {printers:[...]} backup) */
+  function applyImport(data){
+    var arr = Array.isArray(data) ? data
+      : (data && Array.isArray(data.printers) ? data.printers : null);
+    if(!arr) throw new Error("bad format");
+    printers = arr.map(function(p){
+      return {name:p.name||"", addr:p.addr||"", tag:p.tag||"", img:p.img||null, _state:null};
+    });
+    save(); render();
+  }
+
+  /* download a full backup file (includes photos as embedded data) */
+  $("backupBtn").addEventListener("click",function(){
+    var data={app:"print-farm",version:1,exportedAt:new Date().toISOString(),
+      printers:printers.map(function(p){return{name:p.name,addr:p.addr,tag:p.tag,img:p.img||null};})};
+    var blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
+    var url=URL.createObjectURL(blob);
+    var d=new Date(), pad=function(n){return(n<10?"0":"")+n;};
+    var fn="print-farm-zaloha-"+d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate())+".json";
+    var a=document.createElement("a"); a.href=url; a.download=fn;
+    document.body.appendChild(a); a.click();
+    setTimeout(function(){ document.body.removeChild(a); URL.revokeObjectURL(url); },600);
+    toast("Záloha stažena");
+  });
+
+  /* restore from a backup file */
+  $("restoreBtn").addEventListener("click",function(){ $("restoreFile").click(); });
+  $("restoreFile").addEventListener("change",function(e){
+    var file=e.target.files&&e.target.files[0]; if(!file){ return; }
+    var r=new FileReader();
+    r.onload=function(){
+      try{ applyImport(JSON.parse(r.result)); cfgScrim.classList.remove("open"); toast("Obnoveno "+printers.length+"×"); }
+      catch(err){ toast("Soubor se nepodařilo načíst"); }
+      $("restoreFile").value="";
+    };
+    r.onerror=function(){ toast("Chyba čtení souboru"); $("restoreFile").value=""; };
+    r.readAsText(file);
+  });
+
   $("importBtn").addEventListener("click",function(){
-    try{
-      var arr=JSON.parse($("cfgJson").value);
-      if(!Array.isArray(arr)) throw 0;
-      printers=arr.map(function(p){return{name:p.name||"",addr:p.addr||"",tag:p.tag||"",img:p.img||null,_state:null}});
-      save(); render(); cfgScrim.classList.remove("open"); toast("Načteno "+printers.length+"×");
-    }catch(e){ toast("Neplatný JSON"); }
+    try{ applyImport(JSON.parse($("cfgJson").value)); cfgScrim.classList.remove("open"); toast("Načteno "+printers.length+"×"); }
+    catch(e){ toast("Neplatný JSON"); }
   });
 
   /* close sheets on scrim tap */
