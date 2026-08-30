@@ -75,7 +75,7 @@
     background:var(--led,var(--muted-2));opacity:.8}
   .bay:hover{border-color:#39404d;background:var(--panel-2)}
   .bay:active{transform:scale(.992)}
-  .bay-row{display:flex;gap:13px;align-items:center}
+  .bay-row{display:flex;gap:12px;align-items:center}
   .bay-main{flex:1;min-width:0}
   .thumb{flex:0 0 auto;width:66px;height:66px;border-radius:11px;object-fit:cover;
     border:1px solid var(--line);background:var(--bg)}
@@ -87,7 +87,7 @@
     100%{box-shadow:0 0 0 8px transparent}}
   .name{font-size:16.5px;font-weight:700;letter-spacing:.01em;flex:1;min-width:0;
     white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .kebab{flex:0 0 auto;width:30px;height:30px;margin:-4px -6px -4px 0;border:0;background:transparent;
+  .kebab{flex:0 0 auto;align-self:flex-start;width:30px;height:30px;margin:-4px -6px 0 -2px;border:0;background:transparent;
     color:var(--muted);cursor:pointer;border-radius:8px;font-size:18px;line-height:1;
     display:flex;align-items:center;justify-content:center}
   .kebab:hover{background:var(--line-soft);color:var(--txt)}
@@ -289,7 +289,6 @@
             '<div class="bay-top">'+
               '<span class="led'+(p._state==="chk"?" pulse":"")+'"></span>'+
               '<span class="name"></span>'+
-              '<button class="kebab" aria-label="Upravit">⋮</button>'+
             '</div>'+
             '<div class="addr"><span class="addr-txt"></span><span class="arrow">↗</span></div>'+
             '<div class="meta">'+
@@ -298,6 +297,7 @@
             '</div>'+
           '</div>'+
           (p.img?'<img class="thumb" alt="">':'')+
+          '<button class="kebab" aria-label="Upravit">⋮</button>'+
         '</div>';
       if(p.img) a.querySelector(".thumb").src=p.img;
       a.querySelector(".name").textContent=p.name||"Bez názvu";
