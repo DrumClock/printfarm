@@ -1,5 +1,5 @@
 /* Print Farm service worker — offline app shell */
-var CACHE = "printfarm-v1";
+var CACHE = "printfarm-v2";
 var ASSETS = [
   "./",
   "./index.html",
