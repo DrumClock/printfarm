@@ -259,12 +259,19 @@
 
   /* storage with graceful fallback (works when file is opened from disk / home screen) */
   function load(){
-    try{ var raw=localStorage.getItem(KEY); if(raw) printers=JSON.parse(raw)||[]; }
-    catch(e){ printers=[]; }
+    try{
+      var raw=localStorage.getItem(KEY);
+      if(raw) printers=JSON.parse(raw)||[];
+    }catch(e){ printers=[]; }
+    // reachability is per-session only — never trust a stored status
+    printers.forEach(function(p){ p._state=null; });
   }
   function save(){
-    try{ localStorage.setItem(KEY,JSON.stringify(printers)); }
-    catch(e){ toast("Uložení se nepovedlo (jen náhled?)"); }
+    try{
+      // persist only real data, never the ephemeral availability status
+      var clean=printers.map(function(p){return {name:p.name,addr:p.addr,tag:p.tag,img:p.img||null};});
+      localStorage.setItem(KEY,JSON.stringify(clean));
+    }catch(e){ toast("Uložení se nepovedlo (jen náhled?)"); }
   }
 
   function normUrl(addr){
