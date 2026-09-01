@@ -1,6 +1,6 @@
 {
-  "name": "Print Farm",
-  "short_name": "Print Farm",
+  "name": "3D Printer Farm",
+  "short_name": "3D Printer Farm",
   "description": "Rozcestník ke Klipper tiskárnám na hotspotu.",
   "start_url": "./",
   "scope": "./",

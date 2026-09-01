@@ -1,5 +1,5 @@
 /* Print Farm service worker — network-first (auto-updates online, works offline) */
-var CACHE = "printfarm-v9";
+var CACHE = "printfarm-v10";
 var ASSETS = [
   "./",
   "./index.html",
